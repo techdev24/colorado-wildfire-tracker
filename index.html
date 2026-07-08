@@ -165,7 +165,7 @@ function addMarker(f){var s=st(f);
  m.on('click',function(){sel(f.id,false);});markers[f.id]=m;
 }
 function sel(id,fromList){document.querySelectorAll('.frow').forEach(function(r){r.classList.toggle('on',r.dataset.id===id);});var f=FIRES.find(function(x){return x.id===id;});if(!f)return;
- if(fromList&&window.innerWidth<=820){document.getElementById('map').scrollIntoView({behavior:'smooth',block:'start'});}
+ if(fromList&&window.innerWidth<=820){var _t=document.querySelector('.tools')||document.getElementById('map');_t.scrollIntoView({behavior:'smooth',block:'start'});}
  map.flyTo([f.lat,f.lng],Math.max(map.getZoom(),8.5),{duration:.5});if(markers[id])markers[id].openPopup();}
 function render(rfw){
  FIRES.sort(function(a,b){return b.acres*(1-b.cont/100)-a.acres*(1-a.cont/100);});
