@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colorado Wildfire Tracker — final preview (by DDS)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&family=Open+Sans:wght@400;600;700&family=PT+Serif:wght@700&display=swap">
+<style>
+:root{--dg-red:#bd0e0e;--dg-red-deep:#9a0b0b;--accent-3:#d8613c;--green:#1f7a44;--ink:#111;--mute:#636363;--rule:#e2e2e2;--paper:#fff;--bg:#f9f9f9;
+ --f-head:"Prompt",sans-serif;--f-body:"Open Sans",sans-serif;}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body)}
+.wrap{max-width:820px;margin:0 auto;padding:22px 16px}
+.dg{font-family:"PT Serif",Georgia,serif;font-weight:700;font-size:22px;margin-bottom:2px}.dg b{color:var(--dg-red)}
+.h1{font-family:var(--f-head);font-weight:700;font-size:26px;margin:10px 0 14px}.h1 span{font-style:italic;font-weight:400}
+.cwt{background:var(--paper);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.cwt-head{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--rule)}
+.cwt-live{display:flex;align-items:center;gap:7px;font-family:var(--f-head);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--dg-red)}
+.cwt-live .dot{width:8px;height:8px;border-radius:50%;background:var(--dg-red);position:relative}
+.cwt-live .dot::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid var(--dg-red);animation:ring 2s ease-out infinite}
+@keyframes ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(2.6);opacity:0}}
+.cwt-title{font-family:var(--f-head);font-weight:700;font-size:17px}.cwt-up{margin-left:auto;font-size:12px;color:var(--mute)}
+.cwt-alerts{background:var(--dg-red);color:#fff;border:none;border-radius:3px;padding:8px 14px;font-family:var(--f-head);font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.tools{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--rule);background:#fbfbfb;flex-wrap:wrap}
+.tool{background:#fff;border:1px solid var(--rule);color:#555;border-radius:3px;padding:5px 10px;font-family:var(--f-head);font-size:12px;cursor:pointer}
+.tool.on{background:#111;border-color:#111;color:#fff}
+.mout{font-family:var(--f-head);font-size:12px;color:var(--dg-red);font-weight:600}
+.body{display:grid;grid-template-columns:1.6fr 1fr}@media(max-width:640px){.body{grid-template-columns:1fr}}
+.mapcol{position:relative;border-right:1px solid var(--rule)}@media(max-width:640px){.mapcol{border-right:none;border-bottom:1px solid var(--rule)}}
+#map{height:440px;width:100%;background:#e7e2da}
+.legend{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.95);border:1px solid var(--rule);border-radius:4px;padding:7px 10px;font-size:10.5px;z-index:600}
+.legend span{display:flex;align-items:center;gap:6px;margin:2px 0}.legend i{width:10px;height:10px;border-radius:50%}
+.rail{display:flex;flex-direction:column;min-width:0}
+.safety{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--rule);background:#fdf3f3}
+.b911{display:inline-flex;align-items:center;gap:6px;background:var(--dg-red);color:#fff;font-family:var(--f-head);font-weight:700;font-size:13px;padding:8px 12px;border-radius:3px;text-decoration:none;white-space:nowrap}
+.safety .stxt{font-size:10.5px;color:var(--mute);line-height:1.35}
+.locate{padding:11px 14px;border-bottom:1px solid var(--rule);background:#fbfbfb}
+.locate button{width:100%;background:#fff;border:1px solid var(--dg-red);border-radius:3px;padding:9px;font-family:var(--f-head);font-weight:600;font-size:13px;cursor:pointer;color:var(--ink)}
+.res{font-size:12px;margin-top:8px;padding:8px 10px;background:#fff;border:1px solid var(--rule);border-radius:3px;line-height:1.5;display:none}.res.show{display:block}
+.rail-h{padding:10px 14px 3px;font-family:var(--f-head);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute)}
+.list{overflow-y:auto;max-height:300px}
+.frow{display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid var(--rule);cursor:pointer}
+.frow:hover,.frow.on{background:#fbf6f4}.frow.on{box-shadow:inset 3px 0 0 var(--dg-red)}
+.frow .sev{width:5px;border-radius:3px;flex:0 0 5px}.frow .b{flex:1;min-width:0}
+.frow h4{font-family:var(--f-head);font-size:15px;font-weight:600;margin:0}
+.frow .loc{font-size:11px;color:var(--mute);margin:2px 0 5px}.frow .st{display:flex;gap:13px;font-size:11.5px}.frow .st b{font-weight:700}
+.bar{height:4px;background:#eee;border-radius:2px;margin-top:6px;overflow:hidden}.bar i{display:block;height:100%}
+.strip{display:flex;flex-wrap:wrap;gap:5px 18px;align-items:baseline;padding:12px 16px;border-top:1px solid var(--rule);font-size:13px;color:var(--mute)}
+.strip b{font-family:var(--f-head);font-weight:700;font-size:18px;color:var(--ink)}
+.official{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--rule);background:#fbfbfb;font-size:12.5px}
+.official-h{font-family:var(--f-head);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:11px;color:var(--mute)}
+.official a{color:var(--dg-red);font-weight:600}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:9px 16px;border-top:1px solid var(--rule);font-size:10.5px;color:#A4A4A4}
+.dds{font-family:var(--f-head);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:10px;color:var(--dg-red)}
+svg.i{width:1em;height:1em;vertical-align:-.125em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.cwt-map--armed .leaflet-container{touch-action:pan-y !important}
+.tap{position:absolute;inset:0;z-index:640;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.18);cursor:pointer}
+.tap span{background:rgba(17,17,17,.85);color:#fff;font-family:var(--f-head);font-weight:600;font-size:12.5px;padding:9px 16px;border-radius:22px}
+*{-webkit-tap-highlight-color:transparent}
+@media(max-width:600px){
+ .cwt-head{flex-wrap:wrap;gap:9px}.cwt-title{font-size:16px}.cwt-alerts{padding:12px 16px;font-size:14px}
+ .tools{gap:8px 10px}.tool{padding:10px 14px;font-size:13px}
+ #map{height:300px}.list{max-height:280px;overscroll-behavior:contain}.frow{padding:14px}.locate button{padding:14px}.b911{padding:12px 14px}
+ .safety{align-items:flex-start}.official{gap:10px 16px}.foot{justify-content:flex-start;gap:6px 14px}
+}
+
+.cwt-head{justify-content:space-between;flex-wrap:wrap}
+.cwt-head-l{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
+.up-in{margin-left:auto;font-size:11.5px;color:var(--mute)}
+@media(max-width:600px){
+ .cwt-alerts{width:100%;justify-content:center;padding:12px}
+ .cwt-head-l{width:100%}
+ .up-in{margin-left:0}
+}
+
+.scrollhint{display:none;padding:8px 14px;font-size:11px;color:var(--mute);text-align:center;background:#fbfbfb;border-top:1px dashed var(--rule)}
+@media(max-width:600px){.scrollhint.show{display:block}}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dg"><b>The</b> Denver Gazette</div>
+  <div class="h1">Tag: <span>Colorado Wildfires</span></div>
+
+  <section class="cwt">
+    <div class="cwt-head">
+      <div class="cwt-head-l"><span class="cwt-live"><span class="dot"></span> Live tracker</span><span class="cwt-title">Colorado Wildfire Map</span></div>
+      <button class="cwt-alerts" id="alerts"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg> Get alerts</button>
+    </div>
+    <div class="tools">
+      <button class="tool" id="hot">Satellite hotspots</button>
+      <button class="tool" id="meas">Measure distance</button>
+      <span class="mout" id="mout"></span>
+      <span class="up-in" id="up"></span>
+    </div>
+    <div class="body">
+      <div class="mapcol"><div id="map"></div>
+        <div class="legend">
+          <span><i style="background:#bd0e0e"></i>Out of control</span>
+          <span><i style="background:#d8613c"></i>Active</span>
+          <span><i style="background:#1f7a44"></i>Near contained</span>
+          <span><i style="background:#ff7a00;border-radius:1px"></i>Hotspot</span>
+        </div></div>
+      <div class="rail">
+        <div class="safety"><a href="tel:911" class="b911"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.13.94.36 1.86.68 2.75a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.89.32 1.81.55 2.75.68A2 2 0 0122 16.92z"/></svg> Call 911</a><span class="stxt">In danger, or see fire or smoke? Call 911 and follow your county sheriff.</span></div>
+        <div class="locate"><button id="near"><svg class="i" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> Find fires near me</button><div class="res" id="nearres"></div></div>
+        <div class="rail-h">Most urgent now</div>
+        <div class="list" id="rail"></div><div class="scrollhint" id="scrollhint"></div>
+      </div>
+    </div>
+    <div class="official"><span class="official-h">Official updates:</span>
+      <a href="https://facebook.com/pueblosheriff" target="_blank" rel="nofollow">Pueblo County Sheriff</a>
+      <a href="https://facebook.com/CCSOAdmin" target="_blank" rel="nofollow">Custer County Sheriff</a>
+      <a href="https://inciweb.wildfire.gov/" target="_blank" rel="nofollow">InciWeb</a>
+      <a href="https://dfpc.colorado.gov/" target="_blank" rel="nofollow">Colorado DFPC</a>
+    </div>
+    <div class="strip" id="strip"></div>
+    <div class="foot"><span>Sources: NIFC · NWS · NASA FIRMS · county emergency management.</span>
+      <a class="dds" href="https://digitaldesk.services" target="_blank" rel="noopener">Built by Digital Desk Services</a></div>
+  </section>
+</div>
+
+<script>
+/* Live NIFC WFIGS perimeters + incidents (real government geometry, like InciWeb).
+   When you open this file in a browser it fetches the real shapes; falls back to sample only if offline. */
+var CO={west:-109.06,south:36.99,east:-102.04,north:41.01};
+var NIFC='https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/';
+function arc(svc){return NIFC+svc+'/FeatureServer/0/query?f=geojson&where=1%3D1&outFields=*&returnGeometry=true&geometry='+[CO.west,CO.south,CO.east,CO.north].join(',')+'&geometryType=esriGeometryEnvelope&inSR=4326&spatialRel=esriSpatialRelIntersects&outSR=4326';}
+var INCIDENTS=arc('WFIGS_Incident_Locations_Current'),PERIMS=arc('WFIGS_Interagency_Perimeters_Current');
+var RFW='https://api.weather.gov/alerts/active?event=Red%20Flag%20Warning&area=CO';
+var SNAPSHOT=[
+ {id:"aspen",name:"Aspen Acres Fire",loc:"Pueblo & Custer Counties",lat:37.95,lng:-104.985,acres:91982,cont:13,poly:[[38.11,-104.86],[38.10,-104.79],[38.06,-104.74],[38.01,-104.72],[37.96,-104.73],[37.92,-104.76],[37.89,-104.81],[37.88,-104.87],[37.90,-104.93],[37.93,-104.97],[37.95,-104.985],[37.98,-104.99],[38.01,-104.97],[38.03,-104.93],[38.05,-104.90],[38.08,-104.88]]},
+ {id:"willow",name:"Willow Fire",loc:"6 mi W of Leadville",lat:39.25,lng:-106.42,acres:4150,cont:5},
+ {id:"gold",name:"Gold Mountain Fire",loc:"Ouray County",lat:38.02,lng:-107.67,acres:29287,cont:2,poly:[[38.25,-107.64],[38.245,-107.58],[38.21,-107.555],[38.15,-107.55],[38.10,-107.565],[38.06,-107.60],[38.03,-107.645],[38.02,-107.67],[38.04,-107.71],[38.08,-107.745],[38.14,-107.76],[38.19,-107.75],[38.23,-107.71]]},
+ {id:"ferris",name:"Ferris Fire",loc:"Montezuma & Dolores Counties",lat:37.545,lng:-108.55,acres:51622,cont:22,poly:[[37.66,-108.54],[37.65,-108.48],[37.62,-108.44],[37.59,-108.42],[37.565,-108.435],[37.55,-108.47],[37.545,-108.51],[37.542,-108.55],[37.56,-108.585],[37.60,-108.60],[37.635,-108.585],[37.655,-108.565]]},
+ {id:"snyder",name:"Snyder Fire",loc:"Mesa & Grand Counties",lat:39.1,lng:-108.82,acres:30202,cont:98}
+];
+function st(f){if(f.cont>=90)return{l:'Near contained',c:'#1f7a44'};if(f.cont>=40)return{l:'Active',c:'#d8613c'};return{l:'Out of control',c:'#bd0e0e'};}
+function colorForCont(c){if(c==null||isNaN(c))return '#d8613c';if(c>=90)return '#1f7a44';if(c>=40)return '#d8613c';return '#bd0e0e';}
+function acresR(a){return Math.sqrt(Math.max(a,1)*4046.86/Math.PI);}
+function hav(a,b){var R=3959,dLa=(b[0]-a[0])*Math.PI/180,dLo=(b[1]-a[1])*Math.PI/180,x=Math.sin(dLa/2)*Math.sin(dLa/2)+Math.cos(a[0]*Math.PI/180)*Math.cos(b[0]*Math.PI/180)*Math.sin(dLo/2)*Math.sin(dLo/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+function pick(p,k){for(var i=0;i<k.length;i++){if(p[k[i]]!=null&&p[k[i]]!=='')return p[k[i]];}return null;}
+function title(x){return x.replace(/\b\w/g,function(m){return m.toUpperCase();});}
+
+var markers={},PERIM=null,FIRES=[],mapActivate=function(){},TOUCH=('ontouchstart' in window);
+var map=L.map('map',{zoomControl:true,scrollWheelZoom:false}).setView([38.7,-105.7],6.3);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{attribution:'\u00a9 OSM \u00a9 CARTO',subdomains:'abcd',maxZoom:19}).addTo(map);
+L.polygon([[[-90,-360],[-90,360],[90,360],[90,-360]],[[CO.north,CO.west],[CO.north,CO.east],[CO.south,CO.east],[CO.south,CO.west]]],{stroke:false,fillColor:'#1a1a1a',fillOpacity:.07,interactive:false}).addTo(map);
+setTimeout(function(){map.invalidateSize();},200);
+if(TOUCH){map.dragging.disable();document.getElementById('map').classList.add('cwt-map--armed');
+ var ov=document.createElement('div');ov.className='tap';ov.innerHTML='<span>Tap to interact with the map</span>';document.getElementById('map').appendChild(ov);
+ mapActivate=function(){if(ov.parentNode)ov.remove();map.dragging.enable();document.getElementById('map').classList.remove('cwt-map--armed');};
+ ov.addEventListener('click',mapActivate,{once:true});}
+function badge(t,warn){var b=document.getElementById('cbadge');if(!b){b=document.createElement('div');b.id='cbadge';document.querySelector('.mapcol').appendChild(b);}
+ b.textContent=t;b.style.cssText='position:absolute;top:8px;left:8px;z-index:600;background:'+(warn?'#fff8e6':'rgba(255,255,255,.94)')+';border:1px solid '+(warn?'#e8d59a':'#e2e2e2')+';border-radius:3px;padding:4px 8px;font-size:10.5px;color:'+(warn?'#7a5b00':'#636363');}
+
+function drawPerimeters(){ if(!PERIM||!PERIM.features||!PERIM.features.length)return;
+ L.geoJSON(PERIM,{interactive:false,style:function(feature){var pr=feature.properties||{};var c=(pr.attr_PercentContained!=null)?pr.attr_PercentContained:pr.poly_PercentContained;var col=colorForCont(c==null?null:parseFloat(c));return {color:col,weight:1.4,fillColor:col,fillOpacity:.2};}}).addTo(map);
+}
+function addMarker(f){var s=st(f);
+ if(f.hasPerim){}
+ else if(f.poly) L.polygon(f.poly,{color:s.c,weight:1.4,fillColor:s.c,fillOpacity:.2,interactive:false}).addTo(map);
+ else L.circle([f.lat,f.lng],{radius:acresR(f.acres),color:s.c,weight:1,fillColor:s.c,fillOpacity:.16}).addTo(map);
+ var m=L.circleMarker([f.lat,f.lng],{radius:6,color:'#fff',weight:1.6,fillColor:s.c,fillOpacity:.95}).addTo(map);
+ m.bindPopup('<b>'+f.name+'</b><br>'+s.l+' \u00b7 '+f.acres.toLocaleString()+' ac \u00b7 '+f.cont+'% contained',{closeButton:false});
+ m.on('click',function(){sel(f.id,false);});markers[f.id]=m;
+}
+function sel(id,fromList){document.querySelectorAll('.frow').forEach(function(r){r.classList.toggle('on',r.dataset.id===id);});var f=FIRES.find(function(x){return x.id===id;});if(!f)return;
+ if(fromList&&window.innerWidth<=820){document.getElementById('map').scrollIntoView({behavior:'smooth',block:'start'});}
+ map.flyTo([f.lat,f.lng],Math.max(map.getZoom(),8.5),{duration:.5});if(markers[id])markers[id].openPopup();}
+function render(rfw){
+ FIRES.sort(function(a,b){return b.acres*(1-b.cont/100)-a.acres*(1-a.cont/100);});
+ drawPerimeters();FIRES.forEach(addMarker);
+ try{map.fitBounds([[CO.south,CO.west],[CO.north,CO.east]]);}catch(e){}
+ document.getElementById('rail').innerHTML=FIRES.map(function(f){var s=st(f);
+  return '<div class="frow" data-id="'+f.id+'"><span class="sev" style="background:'+s.c+'"></span><span class="b"><span class="t"><h4>'+f.name+'</h4></span><div class="loc">'+f.loc+'</div><div class="st"><span><b>'+f.acres.toLocaleString()+'</b> acres</span><span><b>'+f.cont+'%</b> contained</span></div><div class="bar"><i style="width:'+f.cont+'%;background:'+s.c+'"></i></div></span></div>';}).join('')||'<div style="padding:16px;color:#636363;font-size:12.5px">No active fires reported.</div>';
+ document.querySelectorAll('.frow').forEach(function(r){r.onclick=function(){sel(r.dataset.id,true);};});
+ var total=FIRES.reduce(function(a,f){return a+f.acres;},0),avg=FIRES.length?Math.round(FIRES.reduce(function(a,f){return a+f.cont;},0)/FIRES.length):0;
+ document.getElementById('strip').innerHTML='<span><b>'+FIRES.length+'</b> active fires</span><span><b>'+total.toLocaleString()+'</b> acres in Colorado incidents</span><span><b>'+avg+'%</b> avg containment</span>'+(rfw?'<span><b>'+rfw+'</b> red flag warning'+(rfw>1?'s':'')+'</span>':'')+'<span><b>263</b> structures lost</span><span style=\"color:var(--ink)\"><b>3</b> lives lost</span>';
+ document.getElementById('up').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' MDT'; var sh=document.getElementById('scrollhint'); if(sh){ sh.textContent='Scroll for all '+FIRES.length+' fires \u2193'; sh.classList.toggle('show',FIRES.length>3); }
+}
+Promise.allSettled([
+ fetch(INCIDENTS).then(function(r){return r.ok?r.json():Promise.reject();}),
+ fetch(PERIMS).then(function(r){return r.ok?r.json():Promise.reject();}),
+ fetch(RFW,{headers:{Accept:'application/geo+json'}}).then(function(r){return r.ok?r.json():Promise.reject();})
+]).then(function(res){var inc=res[0].value,per=res[1].value;PERIM=per||null;var perById={},perByName={};
+ if(per&&per.features)per.features.forEach(function(f){var pr=f.properties||{};var id=pick(pr,['attr_UniqueFireIdentifier']);if(id)perById[String(id).toLowerCase()]=1;var nm=pick(pr,['attr_IncidentName','poly_IncidentName']);if(nm)perByName[String(nm).toLowerCase().trim()]=1;});
+ if(inc&&inc.features&&inc.features.length){inc.features.forEach(function(f,i){var p=f.properties||{},c=(f.geometry&&f.geometry.coordinates)||null;if(!c)return;
+   var acres=Math.round(pick(p,['IncidentSize','DailyAcres','GISAcres','attr_IncidentSize'])||0);if(acres<10)return;
+   var uid=String(pick(p,['UniqueFireIdentifier','attr_UniqueFireIdentifier','IncidentName'])||i).toLowerCase();
+   var nm=pick(p,['IncidentName','attr_IncidentName'])||'Wildland fire';var cty=pick(p,['POOCounty','attr_POOCounty'])||'Colorado';
+   FIRES.push({id:'f'+i,name:title(nm),loc:(/county/i.test(cty)?cty:cty+' County'),lat:c[1],lng:c[0],acres:acres,cont:Math.round(pick(p,['PercentContained','attr_PercentContained'])||0),hasPerim:!!(perById[uid]||perByName[String(nm).toLowerCase().trim()])});});}
+ if(FIRES.length){badge('Live NIFC perimeters');}
+ else {FIRES=SNAPSHOT.slice();PERIM=null;badge('Offline preview \u2014 sample shapes',true);}
+ render((res[2].value&&res[2].value.features)?res[2].value.features.length:0);
+}).catch(function(){FIRES=SNAPSHOT.slice();PERIM=null;badge('Offline preview \u2014 sample shapes',true);render(0);});
+
+var hotLayer=[],hotOn=false;
+document.getElementById('hot').onclick=function(){var b=this;
+ if(hotOn){hotLayer.forEach(function(x){map.removeLayer(x);});hotLayer=[];hotOn=false;b.classList.remove('on');return;}
+ b.classList.add('on');hotOn=true;
+ FIRES.forEach(function(f){var r=acresR(f.acres)/111320*1.1;for(var i=0;i<35;i++){var la=f.lat+(Math.random()-.5)*r*2,lo=f.lng+(Math.random()-.5)*r*2.4;hotLayer.push(L.circleMarker([la,lo],{radius:2.2,color:'#ff7a00',weight:0,fillColor:'#ff7a00',fillOpacity:.8,interactive:false}).addTo(map));}});
+};
+var mOn=false,pts=[],line=null,dots=[];
+function clearM(){pts=[];dots.forEach(function(d){map.removeLayer(d);});dots=[];if(line)map.removeLayer(line);line=null;document.getElementById('mout').textContent='';}
+document.getElementById('meas').onclick=function(){mOn=!mOn;this.classList.toggle('on',mOn);
+ if(mOn){mapActivate();document.getElementById('mout').textContent='Tap the map to measure\u2026';map.on('click',onM);document.getElementById('map').style.cursor='crosshair';}
+ else{clearM();map.off('click',onM);document.getElementById('map').style.cursor='';}};
+function onM(e){pts.push([e.latlng.lat,e.latlng.lng]);dots.push(L.circleMarker([e.latlng.lat,e.latlng.lng],{radius:3,color:'#fff',weight:1,fillColor:'#111',fillOpacity:1,interactive:false}).addTo(map));
+ if(line)map.removeLayer(line);line=L.polyline(pts,{color:'#111',weight:2,dashArray:'4 4'}).addTo(map);
+ var t=0;for(var i=1;i<pts.length;i++)t+=hav(pts[i-1],pts[i]);
+ document.getElementById('mout').textContent=pts.length<2?'Tap the map to measure\u2026':t.toFixed(2)+' mi ('+(t*1.60934).toFixed(2)+' km)';}
+document.getElementById('near').onclick=function(){var res=document.getElementById('nearres');res.className='res show';res.textContent='Locating\u2026';
+ if(!navigator.geolocation){res.textContent='Location unavailable.';return;}
+ navigator.geolocation.getCurrentPosition(function(p){var la=p.coords.latitude,lo=p.coords.longitude;if(!FIRES.length){res.textContent='No active fires.';return;}
+  var n=FIRES.map(function(f){return{f:f,d:hav([la,lo],[f.lat,f.lng])};}).sort(function(a,b){return a.d-b.d;})[0];
+  L.circleMarker([la,lo],{radius:7,color:'#1a1a1a',weight:2,fillColor:'#1c5fae',fillOpacity:1}).addTo(map).bindPopup('Your location');map.flyTo([la,lo],8,{duration:.6});
+  res.innerHTML='Closest fire: <strong>'+n.f.name+'</strong>, about <strong>'+Math.round(n.d)+' miles</strong> away \u2014 '+st(n.f).l+'.';sel(n.f.id,true);
+ },function(){res.textContent='Couldn\u2019t get your location.';},{timeout:8000});};
+document.getElementById('alerts').onclick=function(){var t=document.createElement('div');t.textContent='Wires into your existing OneSignal \u2014 reader is prompted to subscribe to Colorado wildfire alerts.';t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:11px 18px;border-radius:4px;font-size:13px;z-index:9999;max-width:90vw;text-align:center';document.body.appendChild(t);setTimeout(function(){t.remove();},3800);};
+document.getElementById('up').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' MDT';
+</script>
+</body></html>
